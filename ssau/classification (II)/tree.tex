@@ -1,0 +1,21 @@
+\begin{tikzpicture}[anchor=north,rotate=-90,grow cyclic,shape=circle,very thick,level distance=16mm, cap=round]
+	\tikzstyle{level 1}=[sibling angle=45]
+	\tikzstyle{level 2}=[sibling angle=45]
+	\tikzstyle{level 3}=[sibling angle=40]
+	\tikzstyle{node}=[,fill,text=white]
+	\tikzstyle{edge from parent}=[snake=expanding waves,segment length=0.8mm,
+                              segment angle=7,draw]
+\node [color=black!40] [node] {A} 
+	child [color=2rd1] {
+		node [node] {B}
+			child [color=3rd1] {
+				node [node] {D}}
+			child [color=3rd2] {
+				node [node] {E}}}
+	child [color=2rd2] {
+		node [node] {C}
+			child [color=3rd3] {
+				node [node] {F}}
+			child [color=3rd4] {
+				node [node] {G}}};
+\end{tikzpicture}

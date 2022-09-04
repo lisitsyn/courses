@@ -1,0 +1,746 @@
+\documentclass[compress,red,unicode]{beamer}
+\usepackage[utf8]{inputenc}
+\usepackage[russian]{babel}
+\usepackage{pscyr}
+\usepackage{tikz}
+\usepackage{listings}
+
+\usepackage{cmap}
+\usetikzlibrary{shapes,snakes,trees}
+
+
+\newsavebox{\dataTableContent}
+\newenvironment{dataTable}[1]
+	{\begin{lrbox}{\dataTableContent}
+	  \begin{tabular}{#1}}
+	{\end{tabular}\end{lrbox}\begin{tikzpicture}
+	  \node [inner xsep=0pt] (tbl){\usebox{\dataTableContent}};
+	  \begin{pgfonlayer}{background}
+	\draw[rounded corners=2pt,top color=gray!1,bottom color=main!20,draw=black]
+	         (tbl.north east) rectangle (tbl.south west);
+	\draw[rounded corners=2pt,top color=main!90!black,bottom color=main!60!black,draw=black]
+	          ($(tbl.north west)$) rectangle ($(tbl.north east)-(0,1.5\baselineskip)$);
+	\draw[rounded corners=1pt,top color=main!90!black,bottom color=main!60!black,draw=black]
+   	          ($(tbl.south west)+(0,02pt)$) rectangle ($(tbl.south east)-(0,0.17\baselineskip)$);
+\end{pgfonlayer}
+\end{tikzpicture}}
+
+\definecolor{linenum}{rgb}{0.5,0.2,0.2}
+\definecolor{keywords}{rgb}{0.3,0.1,0.1}
+\definecolor{firstlevel}{rgb}{0.4,0,0}
+\definecolor{secondlevel}{rgb}{0.7,0,0}
+\definecolor{thirdlevel}{rgb}{1,0,0}
+\definecolor{main}{rgb}{0.65,0.12,0.18}
+\definecolor{block}{rgb}{0.980,0.935,0.935}
+
+
+\usetheme{Warsaw}
+\setbeamercolor{block body}{bg=block} 
+\setbeamercolor*{palette primary}{use=structure,fg=white,bg=main}
+
+\lstdefinestyle{mystyle}{language=Python,
+numbers=left,
+numberstyle=\tiny\color{linenum},
+numbersep=5.5pt,
+keywordstyle=\bf\color{keywords}}
+\lstdefinelanguage{morepython}
+{morekeywords={map,sorted}}
+
+\setbeamersize{text margin left=1.5em,text margin right=1.5em}
+\setbeamertemplate{itemize item}{$\bullet$}
+\setbeamertemplate{itemize subitem}{$\bullet$}
+\setbeamertemplate{enumerate items}[default]
+
+\setbeamercolor{enumerate item}{bf=black,fg=main}  
+\setbeamercolor{itemize item}{fg=main}  
+\setbeamercolor{enumerate subitem}{bf=white,fg=main}  
+\setbeamercolor{itemize subitem}{fg=main}  
+
+%\setbeamercolor{frametitle}{fg=white,bg=main}
+%\setbeamercolor{outline}{fg=white,bg=main}
+%\setbeamercolor{title}{fg=white,bg=main}
+\newcommand{\bfc}{\bf\color{main!30!black}}
+\usepackage{verbatim}
+\usepackage[margin=15pt,font={small,sf,it},labelfont=bf]{caption} 
+\usebackgroundtemplate{\includegraphics[width=\paperwidth]{drawing.png}}
+
+\useoutertheme[subsection=false]{smoothbars}
+\title[Машинное обучение]{Классификация. Наивная байесовская классификация. Деревья решений для классификации}
+\author{Сергей Лисицын}
+\institute{lisitsyn.s.o@gmail.com}
+\date{29 марта 2011 г.}
+\setbeamertemplate{footline}[page number]{}
+\setbeamertemplate{navigation symbols}{}
+
+\begin{document}
+\section{}
+\abovedisplayskip=.6\abovedisplayskip
+\belowdisplayskip=.6\belowdisplayskip
+
+\begin{frame}
+
+\titlepage
+\end{frame}
+
+
+
+
+\subsection{}
+
+\begin{frame}{Задача классификации}{Classification}
+\begin{itemize}
+	\item $\sim$ задача распознавания образов
+	\item Имеется некоторое пространство объектов
+	\item Объекты разделены каким-либо образом на классы -- непересекающиеся множества схожих объектов
+	\item Известны классы некоторых из объектов (прецеденты)
+	\item Решение задачи -- алгоритм, позволяющий определить класс для любого элемента пространства объектов на основе имеющихся прецедентов
+	\item В некоторых случаях необходимо определение вероятностей классов
+\end{itemize}
+\end{frame}
+
+\section{Общие понятия}
+\subsection{}
+\begin{frame}{Общая задача классификации}
+Пусть имеется некоторое множество объектов $\mathcal{X}$, конечное множество классов $\mathcal{C}$ и определено отображение
+$$
+f: \mathcal{X} \to \mathcal{C},
+$$
+причём известно, что некоторым элементам $X \subset \mathcal{X}$ соответствуют некоторые классы из множества $\mathcal{C}$. Множество
+$$
+\left \{ X, f(X) \right\} = \left\{ ( x_i, f (x_i) ) \right\}_{i=1}^{N}
+$$ 
+называется обучающей выборкой.\\[0.5cm]
+{\bfc Задача классификации} состоит в нахождении функции $\hat f$, аппроксимирующей $f$ на всех элементах $\mathcal{X}$, которая позволит любой объект из $\mathcal{X}$ отнести к некоторому классу из $\mathcal{C}$.
+\end{frame}
+
+\begin{frame}{Для чего это нужно?}{}
+\begin{itemize}
+	\item Распознавание изображений
+	\item Поддержка решений в банковской сфере
+	\item Дифференциальная диагностика
+	\item Классификация документов
+	\item Анализ геостатистической информации
+	\item Другие задачи, требующие <<узнавания объектов>>
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Review: классификация}
+\begin{itemize}
+	\item Качество классификации, принцип минимизации эмпирического риска
+	\item Обобщающая способность алгоритма
+	\item Кросс-валидация (скользящий контроль) как практическая оценка обобщающей способности
+	\item Переобучение и недообучение
+\end{itemize}
+\end{frame}
+
+
+
+
+\begin{frame}{Принципы MLE и MAP}{Maximum likelihood estimation (MLE), maximum a posteriori (MAP)}
+\begin{itemize}
+\item Метод максимального правдоподобия (MLE): условная вероятность данных при гипотезе максимизируется
+$$
+\hat h = \arg\max_h P(\mathcal{D}|h)
+$$
+\item Принцип максимальной апостериорной вероятности (MAP): условная вероятность гипотезы при данных максимизируется
+$$
+\hat h = \arg\max_h P(h|\mathcal{D})
+$$
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Принцип максимальной апостериорной вероятности для классификации}{MAP classification}
+\begin{itemize}
+	\item В случае классификации гипотеза -- принадлежность классифицируемого объекта некоторому классу
+
+	\item Оптимальным классификатором с точки зрения MAP и ERM является
+$$
+\hat f(x) = \arg\max_{c \in \mathcal{C}} P(c | x)
+$$
+	\item Саму функцию вероятности $P(c|x)$ найти по обучающей выборке не представляется возможным, приходится находить её каким-то иным образом
+\end{itemize}
+\end{frame}
+
+
+
+\section{Байесовская клаcсификация}
+\subsection{}
+
+%\begin{frame}{Теорема Байеса}
+%\begin{itemize}
+%\item Для двух независимых случайных событий $A$ и $B$ выполняется
+%$$
+%P(AB) = P(A|B) P(B) = P(B|A) P(A),
+%$$
+%откуда справедлива теорема Байеса 
+%$$
+%P(B|A) = \frac{P(A|B)P(B)}{P(A)},
+%$$
+%позволяющая <<перевернуть>> условную вероятность. 
+%\item В случае с вероятностью $P(c|x)$, теорема Байеса позволяет вместо неё находить 
+%$$
+%\frac{P(x|c) P(c)}{P(x)}
+%$$
+%и решение задачи будет находиться уже из принципа максимального правдоподобия.
+% Если $A$ -- событие появления некоторого объекта $x\in\mathcal{X}$, а $B$ -- событие принадлежности этого объекта к некоторому классу $c\in\mathcal{C}$, то нетрудно произвести оценку вероятности попадания конкретного объекта в некоторый класс
+%$$
+%P(x|\tilde \alpha(x) = c) = \frac{P(\tilde \alpha(x)=c | x) P(c)}{P(x)}
+%$$
+%\end{itemize}
+%\end{frame}
+
+%\begin{frame}{Байесовское обучение}
+%\begin{itemize}
+%	\item Теорема Байеса позволяет использовать принцип максимальной %апостериорной вероятности без необходимости аппроксимации
+%	\item В байесовском обучении оптимальная гипотеза $\hat \theta$ ищется как %$\arg\max_\theta P(\mathcal{D}|\theta) P(\theta)$, где $\mathcal{D}$ -- %имеющиеся данные
+%	\item Баейсовский подход хорошо формализуется и его решения хорошо %интерпретируются
+%	\item Для классификации такой гипотезой является принадлежность %классифицируемого объекта некоторому классу, то есть количество гипотез равно %количеству различных классов
+%\end{itemize}
+%\end{frame}
+
+\begin{frame}{Байесовская классификация}{Bayes classifier}
+\begin{itemize}
+\item Используя теорему Байеса для классификации можно строить классификатор следующим образом:
+\begin{equation*} 
+\hat f(x) = \arg \max_{c \in \mathcal{C}} \frac{P(c) P(X=x|c)}{P(X=x)} = \arg\max_{c\in\mathcal{C}} P(c) P(X=x|c)
+\end{equation*}
+%\item Кроме того, минимуму эмпирического риска удовлетворяет классификатор
+%$$
+%\hat f(x) = \arg\max_{c\in\mathcal{C}} P(c) p_c(x),
+%$$
+%где $p_c (x)$ -- условная плотность класса в точке $x$
+\item Вероятность объекта $P(X=x)$ не зависит от класса, поэтому её даже не нужно вычислять
+\item Таким образом, задача обучения баейсовского классификатора сводится к определению функций $P (c)$ и $P(X=x|c)$
+
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Наивный байесовский классификатор}{Naïve Bayes classifier}
+\begin{itemize}
+\item Если допустить, что все признаки являются независимыми в совокупности (что довольно {\bf наивно}), то задача существенно упрощается: вероятность факторизуется
+$$
+P (X=x| c) = P (X_1 = x_1 | c) P(X_2 = x_2 | c) \cdots P (X_n = x_n | c), 
+$$
+%$$
+%\color{main!80!black} \text{или плотность } p_c (x) = p_c^1 (x_1) p_c^2 (x_2 | c) \cdots p_c^n (x_n),
+%$$
+тогда классификатор будет иметь вид
+$$
+\hat f(x) = \arg \max_{c \in \mathcal{C}} P (c) \prod_i P (X_i = x_i | c)%}_{\color{main!80!black} \text{или } p^i_c (x_i)}
+$$
+\item Такое допущение, несмотря на свою грубость, позволяет построить классификатор существенно проще и достичь при этом хорошей точности классификации
+\end{itemize}
+
+
+\end{frame}
+
+\begin{frame}{Вычисление оценок вероятностей классификатора}
+\begin{itemize}
+	\item Априорная вероятность вычисляется как частота класса среди элементов обучающей выборки
+$$
+\hat P (c) = \frac{\sum_{e \in \mathcal{X}} [f(e) = c]}{\sum_{e \in \mathcal{X}} 1},
+$$
+	\item Вероятности значений атрибута в классе находятся как частота элементов с таким значением среди всех элементов некоторого класса
+$$
+\hat P (X_i = x_i | c) = \frac{\sum_{e \in \mathcal{X}} [f(e)=c][e_i = x_i]}{\sum_{e \in \mathcal{X}} [f(e) = c]}
+$$
+	\item На практике некоторые вероятности будут обнуляться, что приведёт к обнулению всей вероятности класса -- проблема решается добавлением параметра $\varepsilon$:
+	$$
+	P (X_i = x_i | c) = P (X_i = x_i | c) + \varepsilon
+	$$
+\end{itemize}
+\end{frame}
+
+%\begin{frame}{Проблема нулевых вероятностей}
+%\begin{itemize}
+%	\item Для априорных вероятностей такой проблемы не возникает
+%	\item В случае большого разнообразия значений вероятности $P(x_i = \mathbf{x}_i | f(x) = c)$ %часто обнуляются
+%	\item Логарифмируя:
+%$$
+%\ln df
+%$$
+%НЕСМЕЩЁННОСТЬ БЛЯТЬ НАХУЙ
+%\end{itemize}
+%\end{frame}
+
+\begin{frame}{Обучение NB классификатора}{Naïve bayes}
+\begin{block}{}
+\small
+{\bf\color{main}Вход:} множество классов $\mathcal{C}$, множество $\{ (x^i, \alpha(x^i) \}_i$\\
+{\bf\color{main}Выход:} параметры классификатора 
+$$\hat f(x) = \arg \max_{c\in \mathcal{C}} \hat P (c) \prod_k  \hat P(X_k = x_k | c) $$\\[-12pt]
+\footnotesize
+\begin{enumerate}
+\item для всех $x$ из обучающей выборки\\
+{\footnotesize\color{main!40!black} увеличить соответствующее количество объектов класса $f(x)$; для всех атрибутов $x_k$ увеличить суммы в выражениях для $\hat P (X_k = x_k | c)$}
+\item для всех классов $c$\\
+{\footnotesize\color{main!40!black} вычислить априорные вероятности $\hat P(c)$, вычислить соответствующие каждому атрибуту $\hat P(X_k = x_k | c)$
+}
+\end{enumerate}
+\end{block}
+\end{frame}
+
+\begin{frame}{}%Naïve bayes классификатор}
+
+\begin{block}{}
+\scriptsize
+\lstinputlisting[style=mystyle,fontadjust,alsolanguage=morepython]{nb.py}
+\end{block}
+\end{frame}
+
+\begin{frame}{Классификация текстов}
+\begin{itemize}
+	\item Наивный байесовский классификатор считается одним из лучших классификаторов текстовых документов
+	\item Естественно, что предварительно необходимо привести все слова текстового документа к своей начальной форме
+	\item Вместо оценки вероятностей $P(X_i = x_i | c)$ иногда оценивается вероятность $P(x_i|c)$ появления слова $x_i$ из документа $x$ среди экземпляров класса $c$
+	\item Прежде всего, слова текста нужно преобразовать в начальные формы (для русского языка эту задачу решает mystem компании Яндекс)
+\end{itemize}
+\end{frame}
+
+
+
+
+\begin{frame}{Классификация новостных заголовков}{}
+{\footnotesize
+\begin{tabular}{p{5.5cm}p{5.4cm}}
+\bf\small\color{red!40!black} Происшествия & \bf\small\color{blue!40!black} Спорт \\[0.1cm]
+\color{red!20!black}В Саратове гаишник съел деньги & \color{blue!20!black}Сборная России снова сыграла вничью \\
+\color{red!20!black}Пьяный водитель врезался в билборд & \color{blue!20!black} Спортсмен съел хлеб с допингом\\
+\color{red!20!black}В Курске убит криминальный авторитет& \color{blue!20!black} Сборная Чехии проиграла товарищеский матч\\
+\color{red!20!black}Депутат Хакасии стрелял в ребенка & \color{blue!20!black} В Кубке Гагарина определились полуфиналисты\\
+\color{red!20!black}В Москве убили трех человек & \color{blue!20!black} Команда Норвегии выиграла биатлонную эстафету\\
+\color{red!20!black}В Москве милиционеры ранили дебошира & \color{blue!20!black} Обладателем кубка Стэнли стал Детроит \\
+\end{tabular}
+}
+
+\end{frame}
+
+\begin{frame}{Классификация новостных заголовков}
+\begin{itemize}
+\item Обучающая выборка слишком мала для реальных данных, но даёт понятие о том, как работает алгоритм
+
+\item Правильно классифицируется:
+\begin{itemize}
+\item Обладатель оружия стрелял в человека
+\item Сборная Ирландии снова одержала победу
+\item Депутат думы задержан с поличным
+\item ...
+\end{itemize}
+
+
+
+\item Ошибочно классифицируется:
+\begin{itemize}
+\item В Москве прошёл матч ветеранов
+\item Спортсмен угрожал нападением с ножом
+\item Команда по футболу устроила дебош
+\item ...
+\end{itemize}
+\item Приводит классификатор в уныние:
+\begin{itemize}
+\item НАИВНЫЙ БАЙЕСОВСК? КLАSSNФNКАТОР ДЛЯ ТЕКСТОВ
+\item БЕЗНОГNМ
+\end{itemize}
+
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Гауссовый наивный байесовский классификатор}{Gaussian Naïve Bayes (GNB)}
+\begin{itemize}
+	\item В случае, если атрибуты непрерывны, оценка их вероятности затрудняется, равенство конкретному числу вообще имеет нулевую вероятность
+	\item Вероятность $P(X_i = x_i | c)$ оценивается с помощью гауссовской плотности %(в этом по сути нет ничего криминального)
+%	\item Вместо вероятности $P(X_i = x_i | c)$ оценивается условная плотность класса $p_c^i (x_i)$ %(например плотностью гауссовского распределения):
+$$
+P(X_i = x_i | c) = \underbrace{\frac{1}{\sigma(i,c) \sqrt{2 \pi}} \exp \left\{ - \frac{\bigl(x_i-\mu(i,c)\bigr)^2}{2 \sigma^2 (i,c)} \right\}}_{\mathcal{N} (x_i, \mu(i,c),\sigma(i,c))}
+$$
+	\item В процессе обучения тогда необходимо будет найти статистики $\hat \mu (i,c)$ и $\hat \sigma (i,c)$, оценивающие соответствующие параметры распределений
+
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Нахождение параметров распределений}
+Статистики $\hat \mu (i,c)$ и $\hat \sigma (i,c)$ находятся по формулам:
+$$
+\hat \mu (i, c) = \underbrace{\frac{1}{\sum_{x\in\mathcal{X}} [\alpha(x) = c]}}_{\substack{\text{обратное количество} \\ \text{экземпляров класса}}} \underbrace{\sum_{x\in\mathcal{X}} x_i \cdot [f(x)=c]}_{\substack{\text{сумма i-ых атрибутов} \\ \text{элементов класса}}}
+,
+$$
+то есть имеет смысл среднего значение атрибута в классе, а 
+$$
+\hat \sigma (i, c) = \underbrace{\frac{1}{\sum_{x\in\mathcal{X} } [f(x) = c] {\color{main}- 1}}}_{\substack{\text{обратное количество} \\ \text{экземпляров класса}}}
+\underbrace{\sum_{x\in\mathcal{X}}\bigl(x_i - \mu(i,c)\bigr)^2 \cdot [f(x)=c]}_{\substack{\text{сумма квадратов отклонений} \\ \text{ i-ых атрибутов элементов класса}}},
+$$
+имеет смысл среднеквадратичного отклонения значения атрибута в классе
+\end{frame}
+
+
+\begin{frame}{Обучение GNB классификатора}{}
+\begin{block}{}
+\small
+{\bf\color{main}Вход:} множество классов $\mathcal{C}$, множество $\{ (x^i, \alpha(x^i) \}_i$\\
+{\bf\color{main}Выход:} параметры классификатора 
+$$\hat f(x) = \arg \max_{c\in \mathcal{C}} \hat P (c) \prod_k  \mathcal{N} \bigl(x_k, \hat \mu(k,c), \hat \sigma(k,c)\bigr)$$\\[-15pt]
+\footnotesize
+\begin{enumerate}
+\item для всех $x$ из обучающей выборки\\
+{\footnotesize\color{main!40!black} увеличить соответствующее количество объектов класса $f(x)$; для всех атрибутов $x_k$ увеличить суммы в выражениях для $\mu(k,c)$}
+
+\item для каждого класса $c$\\
+{\footnotesize\color{main!40!black} вычислить $\hat P(c)$ как отношение количества объектов класса $c$ к общему количеству объектов; для каждого $k$-го атрибута вычислить $\mu(k,c)$, разделив на количество объектов класса $c$}
+
+\item для всех атрибутов объектов $x$\\
+{\footnotesize\color{main!40!black} увеличить на $(x_k - \mu(k,c))^2$ соответствующие им суммы в $\sigma(k,c)$}
+\item для каждого класса $c$\\
+{\footnotesize\color{main!40!black} для каждого $k$-го атрибута вычислить $\sigma(k,c)$, разделив на количество объектов класса $c$ за вычетом одного}
+
+
+\end{enumerate}
+\end{block}
+\end{frame}
+
+\begin{frame}{}
+
+\begin{block}{}
+\scriptsize
+\lstinputlisting[style=mystyle,fontadjust,alsolanguage=morepython]{gnb.py}
+\end{block}
+
+\end{frame}
+
+\begin{frame}{Классификация текстов на основе TF-IDF и классификатора GNB}
+\begin{itemize}
+%	\item В классификации текстов можно не только не учитывать взаимные связи слов, но и вообще их порядок
+	\item Коэффициентом TF (term frequency) называется частота слова $w$ в документе $d$:
+$$
+TF (w,d) = \frac{n(w)}{\sum_{w \in d} n(w)}
+$$
+	\item Коэффициентом IDF (inversed document frequency) называется доля документов среди $D$, в которых встречается слово $w$:
+$$
+IDF (w) = \log \frac{\sum_{d\in D} 1}{\sum_{d\in D} [w\in d]}
+$$
+	\item TF-IDF представляет любой документ $d$ из $k$ различных слов как вектор численных значений $TF(w_i,d)\cdot IDF(w_i), i=0,\dots,k $
+
+\end{itemize}
+\end{frame}
+
+%\begin{frame}{Классификация текстов на основе коэффициента TF-IDF и %классификатора GNB}
+%
+%\begin{itemize}
+%	\item Задавая некоторый параметр $\delta$, можно избавиться в %представлении документа от частых слов (of, the, ...), не включая в описание %текста слова с $\text{TF-IDF} < \delta $ 
+%	\item Статистики гауссового классификатора находятся уже описанным методом
+%
+%
+% ТУДУ
+%\end{itemize}
+
+%\end{frame}
+
+\begin{frame}{Эффективность}
+\begin{itemize}
+	\item Наивный байесовский подход хорошо подходит для классификации текстов
+	\item Уже обученный классификатор достаточно трудно <<дообучивать>> и проще переобучить его на дополненных данных
+	\item Для вычисления всех параметров достаточно два раза <<обойти>> все объекты обучающей выборки, то есть обучение происходит за $O(n)$
+	\item Сама классификация происходит достаточно быстро, требует хранения $k(2n+1)$ чисел в памяти, $k$ -- количество классов; $(2n+1)$ -- количество параметров для каждого класса
+	\item Наивный (не гауссовый) байесовский классификатор требует большого количества памяти при разнородных выборках
+
+\end{itemize}
+\end{frame}
+
+\begin{frame}{What to know?}
+\begin{itemize}
+	\item Байесовская классификация, наивная байесовская классификация
+	\item Классификация коротких новостных заголовков с помощью наивного байесовского классификатора 
+	\item Гауссовский наивный байесовский классификатор как альтернатива для непрерывных признаков
+	\item Классификация документов с помощью представления TF-IDF и гауссовского наивного байесовского классификатора
+\end{itemize}
+\end{frame}
+
+\section{Классификация деревьями решений}
+\subsection{}
+
+\begin{frame}{Деревья решений}{Decision Tree (DT)}
+\begin{itemize}
+	\item Дерево решений -- дерево, в нетерминальных узлах которого расположены некоторые предикаты, исходящие из этого узла рёбра характеризуют значения предиката; в терминальных узлах находятся значения функции
+	\item Значение функции находится последовательным переходом по ребрам, соответствующим значениям предиката в узле, до тех пор, пока не будет достигнут терминальный узел
+
+	\item Любое решающее дерево может быть представлено как решающий список с помощью ДНФ, полученных обходом дерева
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Выдавать ли кредит?}{Простой пример дерева решений}
+
+\definecolor{3rd1}{rgb}{0.2,0.8.0}
+\definecolor{3rd2}{rgb}{0,0.6,0.8}
+\definecolor{3rd3}{rgb}{0.6,0,0.8}
+\definecolor{3rd4}{rgb}{0.8,0.2,0}
+\definecolor{2rd1}{rgb}{0.2,0.9,0.8}
+\definecolor{2rd2}{rgb}{1,0.2,0.4}
+\begin{tikzpicture}[grow=right,thick,shape=circle,sloped]
+\tikzstyle{level 1}=[level distance=4.5cm, sibling distance=4.0cm]
+\tikzstyle{level 2}=[level distance=5.5cm, sibling distance=1.5cm]
+%	\tikzstyle{level 3}=[sibling angle=45]
+	\tikzstyle{node}=[fill, text=white]
+	\tikzstyle{edge from parent}=[snake=expanding waves,segment length=0.7mm,
+                              segment angle=2.5,draw]
+\node [color=main] [node] {\bf ?} %,label=above:{\footnotesize\color{main} есть недвижимость?}] {} 
+	child [color=2rd1] {
+		node [node] {\bf ?} %label=below:{\footnotesize есть машина?}] {}
+			child [color=3rd1] {
+				node [node] {\bf\small нет}
+			edge from parent 
+			node [below=-13pt] {{\footnotesize\bf нет работы}}}
+			child [color=3rd2] {
+				node [node] {\bf\small да}
+			edge from parent 
+			node [above=-13pt] {\footnotesize\bf есть работа}}
+		edge from parent 
+		node [below=-23pt] {\footnotesize\bf нет недвижимости}}
+	child [color=2rd2] {
+		node [node] {\bf ?} %,label=above:{\footnotesize есть долги?}] {}
+			child [color=3rd3] {
+				node [node] {\bf\small да}
+			edge from parent 
+			node [below=-13pt] {\footnotesize\bf нет долгов}}
+			child [color=3rd4] {
+				node [node] {\bf\small нет}
+			edge from parent
+			node [above=-13pt] {\footnotesize\bf есть долги}}
+		edge from parent 
+		node [above=-23pt] {\footnotesize\bf есть недвижимость}};
+\end{tikzpicture}
+
+\end{frame}
+
+\begin{frame}{Деревья для классификации}
+\begin{itemize}
+\item В случае классификации значения функции -- классы
+\item Высокая скорость классификации
+\item Обработка одновременно категориальных и численных данных
+\item Высокая интерпретируемость -- классификацию построенным деревом может производить даже человек
+\item Достаточно строгая статистическая основа алгоритмов построения деревьев
+\item Как правило чрезмерно усложняются на классификации векторов классификации
+\item Задача построения дерева всегда сводится к нахождению предикатов для нетерминальных узлов и наилучшему их размещению в дереве
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Предикаты объектов обучающей выборки}
+\begin{itemize}
+\item Для построения дерева классификации необходимо выбрать некоторые предикаты, способные разделить выборку на непересекающиеся составляющие
+\item Примеры таких предикатов
+\begin{itemize}
+	\item $\varphi_{=a_i} (x) = [x_i = a_i]$ -- предикат равенства
+	\item $\varphi_{>a_i} (x) = [x_i > a_i]$ -- предикат неравенства
+	\item другие неравенства, составные неравенства нескольких атрибутов, ...
+\end{itemize}
+\item Наиболее часто встречаются предикаты равенства, но в случае вещественных переменных они бессмысленны
+\item Предикаты неравенства же прежде всего должны быть найдены из обучающей выборки
+
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Бинаризация предикатов}
+\begin{itemize}
+	\item Вещественные атрибуты (та же ситуация, как и c GNB) бесполезно оценивать предикатами равенства -- дерево будет слишком сложным и на тестовых выборках с вероятностью 1 будет отказываться от классификации
+	\item Для простоты можно строить предикат $\varphi_i(x) = [x_i > \overline{x}_i]$, где $\overline{x}_i$ -- среднее значение атрибута $x_i$ в обучающей выборке
+	\item В случае с категориальными признаками объектов строятся многозначными -- по количеству различных значений признака
+	\item Дальше будем рассматривать деревья для чисто категориальных данных (в таком случае признаки объекта сами характеризуют свои предикаты)
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Алгоритм ID3}{Iterative Dichotomizer 3}
+\begin{itemize}
+	\item Описан Россом Квинланом в 1976 году
+	\item Определил повышенный интерес к деревьям классификации и регрессии
+	\item Имеется множество алгоритмов, развивающих ID3 (С4.5, С5.0, etc)
+	\item Строит дерево на основе энтропийной <<ценности>> каждого из предикатов: в более высокие по иерархии узлы устанавливаются предикаты с максимальным приростом информации
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Описание алгоритма ID3}{}
+\begin{block}{}
+\small
+{\bf\color{main}Вход:} обучающая выборка $T$ -- пары (объект-ответ), множество предикатов $\mathcal{B}$ на обучающей выборке\\
+{\bf\color{main}Выход:} дерево решений \\
+\begin{enumerate}
+\item Создать корень дерева
+\item Если множество предикатов $\mathcal{B}$ состоит из одного предиката -- поместить в корень класс, характерный для большинства объектов выборки
+\item Если в обучающей выборке встречается только один класс -- поместить в корень этот класс
+\item Найти наиболее информативный предикат $\beta \in \mathcal{B}$
+\item Для каждого возможного значения $b_i$ предиката $\beta$:
+\begin{itemize}
+	\item Рекурсивно запустить алгоритм для подмножества $\left\{x\in \mathcal{T}| \beta(x)=b_i \right\}$ и множества предикатов $\mathcal{B} \setminus \beta$
+
+\end{itemize}
+
+\end{enumerate}
+\end{block}
+\end{frame}
+
+\begin{frame}{}
+\begin{block}{}
+\scriptsize
+\lstinputlisting[style=mystyle,fontadjust,alsolanguage=morepython]{id3.py}
+\end{block}
+\end{frame}
+
+
+\begin{frame}{}
+\begin{block}{}
+\scriptsize
+\lstinputlisting[style=mystyle,fontadjust,alsolanguage=morepython]{id3-2.py}
+\end{block}
+\end{frame}
+
+
+\begin{frame}{Информационная энтропия}
+\begin{itemize}
+	\item Если $\mathcal{D}$ разбивается на два класса из $\mathcal{C}$ (m и n объектов) 
+$$
+H(\mathcal{D},\mathcal{C}) = - \frac{m}{m+n} \log_2 \frac{m}{m+n} - \frac{n}{m+n} \log_2 \frac{n}{m+n}
+$$ 
+	\item Обобщая на $s$ классов из $\mathcal{C}$ с количествами объектов $m_i~(i=1,\dots,s), \sum_i m_i = n$, формула имеет вид
+$$
+H(\mathcal{D},\mathcal{C}) = - \sum_{i=1}^{s} \frac{m_i}{n} \log \frac{m_i}{n}
+$$
+	\item Наилучший предикат $\mathcal{F}_{best}$ c возможными значениями ($f_1, f_2, \dots$) выбирается из прироста информации (information gain): $ \mathcal{F}_{best} =\arg \displaystyle\max_\mathcal{F} Gain(\mathcal{D},\mathcal{F}) $,
+$$
+Gain(\mathcal{D},\mathcal{F}) = \underbrace{H(\mathcal{D},\mathcal{C})}_\text{до разбиения} - \underbrace{\sum_i \frac{|\mathcal{D}_i|}{|\mathcal{D}|} H(\mathcal{D}_i,\mathcal{C})}_\text{результат разбиения}, ~~\mathcal{D}_i = \left\{x \in \mathcal{D} | \mathcal{F}(x) = f_i \right\}
+$$
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Реализация: энтропия и прирости информации}
+\begin{block}{}
+\scriptsize
+\lstinputlisting[style=mystyle,fontadjust,alsolanguage=morepython]{entropy.py}
+\end{block}
+\end{frame}
+
+
+\begin{frame}{Реализация: поиск информативного признака и самого частого класса}
+\begin{block}{}
+\scriptsize
+\lstinputlisting[style=mystyle,fontadjust,alsolanguage=morepython]{search.py}
+\end{block}
+\end{frame}
+
+
+
+
+\begin{frame}{Деревья для задачи кредитной классификации}
+\begin{itemize}
+	\item Упрощённая задача кредитного скоринга, на основе прошлых данных принимается решение выдавать ли новому клиенту кредит
+	\item Обучающая выборка содержит всего 6 предыдущих клиентов
+	\begin{center}
+\footnotesize
+\begin{tabular}{cccc}
+Work & Education & Age & ? \\
+- & high school & 19-25 & no \\
++ & msc degree & 19-25 & yes \\
+- & bs degree & 19-25 & no \\
++ & bs degree & 26-50 & yes \\
+- & phd & 26-50 & yes \\
++ & phd & 19-25 & yes 
+\end{tabular}
+\end{center}
+	\item В результате обработки, алгоритм строит дерево для классификации
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Построенное дерево для кредитной классификации}
+\begin{tikzpicture}[grow=right,thick,shape=circle,sloped]
+\tikzstyle{level 1}=[level distance=4.5cm, sibling distance=1.5cm]
+\tikzstyle{level 2}=[level distance=5.5cm, sibling distance=1.5cm]
+%	\tikzstyle{level 3}=[sibling angle=45]
+	\tikzstyle{node}=[fill, text=white]
+	\tikzstyle{edge from parent}=[snake=expanding waves,segment length=0.7mm,
+                              segment angle=2.5,draw]
+
+%
+\node [color=main] [node] {\bf ?} %,label=above:{\footnotesize\color{main} есть недвижимость?}] {} 
+	child [color=main] {
+		node [node] {\bf ?} 
+		child [color=main] {
+				node [node] {\bf да}
+				edge from parent node[below=-5pt] {\footnotesize\bf 26-50}}
+		child [color=main] {
+				node [node] {\bf нет}
+				edge from parent node[above=-5pt] {\footnotesize\bf 19-25}}
+		edge from parent node[below=0pt] {\footnotesize\bf bs}}
+	child [color=main] {
+		node [node] {\bf да}
+		edge from parent node[below=-13pt] {\footnotesize\bf masters}}
+	child [color=main] {
+		node [node] {\bf да}
+		edge from parent node[above=-2pt] {\footnotesize\bf phd}}
+	child [color=main] {
+		node [node] {\bf нет}
+		edge from parent node[above=-15pt] {\footnotesize\bf high school}};
+\end{tikzpicture}
+\end{frame}
+
+\begin{frame}{Эффективность}
+\begin{itemize}
+	\item В случае признака с сильно неоднородными значениями разбиение по соответствующему ему предикату будет являться наиболее информативным, но помещать такой предикат в корень (или близко к корню) бесполезно
+	\item Существуют иные способы оценки предикатов (Gain Ratio, Gini Index, ...), превосходящие энтропийную оценку
+	\item Деревья решений удобны для категориальных признаков и смешанных пространств объектов (как с категориальными, так и вещественными признаками), для чисто вещественных признаков деревья не так удобны
+	\item Классификация выполняется простым обходом дерева -- достаточно быстро
+	\item Построение дерева требует дорогостоящих вычислений энтропии и прироста информации
+
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Проблема оверфиттинга и принцип минимальной длины описания}{Minimum Description Length (MDL)}
+\begin{itemize}
+	\item Чем больше дерево, тем более оно подвержено оверфиттингу
+	\item Дерево, учитывающее все возможные признаки является как правило переобученным 
+	\item Принцип минимальной длины описания является аналогом <<бритвы Оккама>> для обучаемых алгоритмов
+	\item В случае с деревом классификации MDL формулируется как минимизация суммы функции потерь на обучающей выборке (риска) и количества его узлов $N$
+$$
+\sum_{x\in\mathcal{X}} [f(x)\ne\hat f(x)] + N\to \min
+$$
+
+\end{itemize}
+\end{frame}
+
+
+
+%\begin{frame}{Эффективность}
+%\begin{itemize}
+%\item Построение дерева требует достаточно большого количества операций при поиске необходимого признака
+%\item Сама классификация выполняется за линейное по высоте дерева $h$ время $O(h)$
+%
+%\end{itemize}
+%\end{frame}
+
+\begin{frame}{What to know?}
+\begin{itemize}
+\item Дерево решений, дерево решений для классификации
+\item Алгоритм ID3
+\item Способы определения предикатов на множестве объектов, их бинаризация и слияние
+\item Энтропийная оценка предикатов как отношение порядка на их множестве
+\item MDL принцип, его смысл для дерева классификации
+
+\end{itemize}
+\end{frame}
+
+\section{}
+
+\begin{frame}{Источники}
+\begin{enumerate}
+	\item Mitchell T., "Bayesian Classifiers, Conditional Independence and Naïve Bayes"
+	\item Mitchell T., "Gaussian Naïve Bayes, and Logistic Regression"
+	\item Воронцов К.В., <<Байесовская классификация, непараметрические методы>>
+	\item Quinlan J., "Induction of Decision Trees"
+	\item Николенко С.И., <<Деревья принятия решений>>
+	\item Xing E., "Introduction to ML and Decision Trees"
+	\item Воронцов К.В., <<Лекции по логическим алгоритмам классификации>>
+
+\end{enumerate}
+\end{frame}
+
+
+\end{document}

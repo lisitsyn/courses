@@ -1,0 +1,588 @@
+\documentclass[compress,red,unicode]{beamer}
+\usepackage[utf8]{inputenc}
+\usepackage[russian]{babel}
+\usepackage{pscyr}
+\usepackage{cmap}
+\usepackage{tikz}
+\usepackage{listings}
+\lstdefinestyle{mystyle}{language=Python,
+numbers=left,
+numberstyle=\tiny\color{linenum},
+numbersep=-0.5pt,
+keywordstyle=\bf\color{keywords}}
+\usetikzlibrary{shapes,snakes,trees,mindmap}
+
+\definecolor{linenum}{rgb}{0.8,0.4,0.4}
+\definecolor{keywords}{rgb}{0.5,0.2,0.2}
+\definecolor{firstlevel}{rgb}{0.4,0,0}
+\definecolor{secondlevel}{rgb}{0.7,0,0}
+\definecolor{thirdlevel}{rgb}{1,0,0}
+\definecolor{main}{rgb}{0,0.45,0.35}
+
+\usetheme{Warsaw}
+\setbeamercolor*{palette primary}{use=structure,fg=white,bg=main}
+\setbeamercolor{block title}{bg=main,fg=white}%bg=background, fg= foreground
+\setbeamercolor{block body}{bg=main!3,fg=black}
+%
+%
+
+\setbeamersize{text margin left=1.5em,text margin right=1.5em}
+\setbeamertemplate{itemize item}{$\bullet$}
+\setbeamertemplate{itemize subitem}{$\circ$}
+\setbeamertemplate{enumerate items}[default]
+
+\setbeamercolor{enumerate item}{bf=black,fg=main}  
+\setbeamercolor{itemize item}{fg=main}  
+\setbeamercolor{enumerate subitem}{bf=white,fg=main}  
+\setbeamercolor{itemize subitem}{fg=main}  
+
+\usepackage{verbatim}
+\usepackage[margin=15pt,font={small,sf,it},labelfont=bf]{caption} 
+\usebackgroundtemplate{\includegraphics[width=\paperwidth]{drawing.png}}
+
+\useoutertheme[subsection=false]{smoothbars}
+\title[Машинное обучение]{Введение в машинное обучение}
+\author{Сергей Лисицын}
+\institute{lisitsyn.s.o@gmail.com}
+\date{15 марта 2011 г.}
+\setbeamertemplate{footline}[page number]{}
+\setbeamertemplate{navigation symbols}{}
+
+\begin{document}
+\section{}
+\abovedisplayskip=.6\abovedisplayskip
+\belowdisplayskip=.6\belowdisplayskip
+
+\begin{frame}
+
+\titlepage
+\end{frame}
+\section{Описание курса}
+\subsection{}
+
+\begin{frame}{План курса}
+\begin{enumerate}
+\item Введение в машинное обучение, 15 марта 2011
+\item Классификация, 22 марта 2011 
+\item Классификация, 29 марта 2011
+\item Кластеризация, 5 апреля 2011
+\item Поиск ассоциативных правил, 12 апреля 2011
+
+
+
+\end{enumerate}
+\end{frame}
+
+\begin{frame}{Развитие курса}
+
+\begin{enumerate}
+\item Выбор и синтез признаков, метод главных компонент (PCA)
+\item Стимулируемое обучение (reinforcement learning)
+\item Активное и аналитическое обучение (active learning, analytical learning)
+\item Вычислительная теория обучения (COLT)
+\item Параллельные алгоритмы машинного обучения, анализ больших объемов данных
+\end{enumerate}
+
+\end{frame}
+
+
+\begin{frame}{Содержание курса}
+\begin{itemize}
+	\item Описание некоторых хорошоизученных задач машинного обучения
+	\item Примеры решения реальных задач
+	\item Реализации большинства методов
+	\item Немного анализа эффективности, применимости и вычислительной сложности алгоритмов
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Задачи этого курса}
+\begin{itemize}
+	\item Познакомить слушателя с машинным обучением и задачами, им решаемыми
+	\item Показать применимость конкретных методов к реальным задачам
+	\item Убедить, что теорию вероятности и линейную алгебру можно применить где-то кроме университета :-)
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Реализации расмотренных в курсе методов}
+\begin{itemize}
+	\item Для большинства рассмотренных алгоритмов приложены примеры их реализации на языке Python
+	\item Выбор языка обусловлен его простотой, распространённостью и не <<эзотеричностью>>
+	\item Знание Python поможет, но не необходимо
+	\item Сами алгоритмы будут описаны в виде последовательности действий на естественном языке
+
+
+\end{itemize}
+\end{frame}
+
+
+\section{Машинное обучение}
+\subsection{}
+
+\begin{frame}{Немного об истории искусственного интеллекта}
+\begin{itemize}
+	\item Искусственный интеллект как научная дисциплина (или проект) развивается уже достаточно долгое время
+	\item Наибольшая активность по попыткам создания искусственного интеллекта наблюдалась в 60-х и 70-х годах прошлого века
+	\item {<<В течении десяти лет компьютер сможет стать чемпионом мира по шахматам>>, Ньюэлл, 1958}
+	\item {<<В течении 3-8 лет мы будем иметь машины с такими же умственными способностями, как у человека>>, Мински, 1970}
+	\item На проекты искусственного интеллекта выделялись огромные деньги 
+	\item Но всё оказалось не так радужно, проекты искусственного интеллекта стали <<буксовать>>
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Проблемы искусственного интеллекта}
+\begin{itemize}
+	\item В 1973 Лайтхилл опубликовал отчёт, предрекший снижение финансирования и вообще интереса к ИИ
+	\item Проблема комбинаторного взрыва и низкая производительность компьютеров
+	\item Парадокс Моравеца: для машины многие простые задачи становятся сложными и наоборот
+	\item Проблемы представления знаний <<здравого смысла>> (commonsense knowledge)
+	\item Как результат -- т.н. <<зима искусственного интеллекта>> -- снижение финансирования проектов по созданию искусственного интеллекта
+	\item Имеющиеся достижения не могли просто пропасть -- потеря интереса к ИИ привела к развитию смежных дисциплин, но уже не в рамках такого грандиозного проекта
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Смежные и составные дисциплины AI}
+\begin{itemize}
+	\item Обработка естественных языков (natural language processing) 
+	\item Компьютерное зрения и распознавание образов (computer vision, pattern recognition)
+	\item Инженерия знаний (knowledge engineering)
+	\item Вывод фактов (inference)
+	\item Машинное обучение (machine learning)
+	\item ...
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Машинное обучение}
+\begin{itemize}
+	\item Подраздел искусственного интеллекта, изучающий методы построения алгоритмов, способных к обобщению и обучению
+	\item Тесно связанная с теорией вероятностей и статистикой, линейной алгеброй, методами оптимизации и некоторыми другими дисциплинами
+	\item Возникло на основе ранних работ по созданию искусственного интеллекта как способ решения труднопрограммируемых задач
+	\item Как и статистика имеет практическую основу и большая часть исследований проводится на реальных данных
+	\item Теоретические исследования проводятся в рамках вычислительной теории обучения (computational learning theory, COLT)
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Предпосылки к развитию машинного обучения}
+\begin{itemize}
+	\item Проблема создания AI не только технологично трудна, но трудноразрешима даже философски
+	\item Вместо создания полноценного искусственного интеллекта можно реализовать одну из самых важных частей <<интеллектуальности>> -- способность обучаться
+	\item Некоторые области знаний уже имели наработки в способности обучаться -- статистическая теория обучения распознавания образов	
+	\item Улучшение вычислительных способностей компьютеров и постановка трудноразрешимых напрямую задач
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Ниши машинного обучения}
+\begin{itemize}
+\item Интеллектуальный анализ данных:
+\begin{itemize}
+	\item Выделение из данных знаний
+	\item Выяснение структуры данных
+	\item ...
+\end{itemize}
+\item Приложения, которые тяжело или невозможно запрограммировать
+\begin{itemize}
+	\item Распознавание
+	\item Автоматическое управление
+	\item ...
+\end{itemize}
+\item Адаптивные приложения
+\begin{itemize}
+	\item Коллаборативная фильтрация интересов
+	\item Фильтрация спама
+	\item ...
+\end{itemize}
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Что такое обучаемый алгоритм?}
+\begin{block}{Определение Артура Самуэля, 1959 (вольный перевод)}
+Алгоритм, который может обучаться без явного запрограммирования.
+\end{block}
+
+\begin{block}{Определение Тома Митчелла, 1998}
+Алгоритм обучается на основе опыта {\color{main!70!black}$E$} по отношению к некоторому классу задач {\color{main!70!black}$T$} и меры качества {\color{main!70!black}$P$}, если качество решения задач из {\color{main!70!black}$T$} улучшается (по мере {\color{main!70!black}$P$}) с приобретением опыта {\color{main!70!black}$E$}.
+\end{block}
+\end{frame}
+
+\begin{frame}{Открытые вопросы машинного обучения}
+\begin{itemize}
+	\item Какой алгоритм решает некоторую задачу наилучшим образом? Как создать такой алгоритм?
+	\item Сколько и какой информации необходимо для обучения?
+	\item Какие данные выбирать для обучения, как этот выбор влияет на качество обучения? 
+	\item Как свести какую-либо задачу обучения к аппроксимации или оптимизации какой-то функции?
+	\item Практические вопросы выбора моделей (как данных, так и моделей алгоритмов)
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Типы машинного обучения}
+\begin{itemize}
+	\item Обучение с учителем (supervised learning)\\
+	{\color{green!90!red!80!black} явная обратная связь от <<учителя>>}
+	\item Частичное обучение (semi-supervised learning)\\
+	{\color{green!70!red!80!black} частичная обратная связь от <<учителя>>}
+	\item Активное обучение (active learning)\\
+	{\color{green!50!red!80!black} обратная связь по запросу}
+	\item Стимулируемое обучение (reinforcement learning)\\
+	{\color{green!30!red!80!black} отложенная обратная связь}
+	\item Обучение без учителя (unsupervised learning)\\
+	{\color{green!10!red!80!black} нет обратной связи}
+\end{itemize}
+\end{frame}
+
+
+
+\subsection{}
+\begin{frame}{Обучение с учителем и частичное обучение}{Supervised (semi-supervised) learning}
+\begin{itemize}
+\item На подмножестве рассматриваемых объектов известны соответствующие объектам ответы (их знает <<учитель>>)
+\item Учителем как правило является обучающая выборка пар (объект -- ответ)
+\item Задачей такого обучения является нахождение закономерности, позволяющее узнать ответ на любом требуемом объекте
+\item В случае с частичным обучением большая часть ответов не известна
+
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Активное обучение}{Active learning}
+\begin{itemize}
+	\item Очень схоже с обучением с учителем, но <<ответы>> изначально неизвестны
+	\item Основная идея состоит в том, что алгоритм может обучаться на малых выборках, если он сам будет выбирать какие данные ему нужны
+	\item Таким образом, алгоритм составляет запросы (query), ответы на которые помогают ему обучиться 
+\end{itemize}
+\end{frame}
+
+\subsection{}
+
+\begin{frame}{Обучение с подкреплением}{Reinforcement learning}
+\begin{itemize}
+	\item Не существует никаких <<правильных>>  ответов
+	\item Можно наблюдать ответную реакцию среды
+	\item Ситуация достаточно близкая к реальной
+	\item Как правило используется формализация марковским процессом принятия решений
+	\item Алгоритм пытается найти стратегию, оптимальную для данного процесса принятия решения
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Обучение без учителя}{Unsupervised learning}
+\begin{itemize}
+	\item Работа с данными без сторонней информации: ищется не зависимости (объект-ответ), а связи между объектами
+	\item Критерии качества обучения сильно разнятся в зависимости от задачи
+	\item Большая часть методов анализа данных производится именно в рамках этого типа задач
+
+
+\end{itemize}
+\end{frame}
+
+\subsection{}
+
+\begin{frame}{Переобучение и недообучение}{Overfitting, underfitting}
+\begin{itemize}
+	\item Переобучение (overfitting) -- явление, при котором алгоритм слишком приспособлен для данных, на которых обучался
+	\item Недообучение (underfitting) -- обратное переобучению явление, при котором алгоритм не использует полностью предоставленные ему данные
+	\item В некоторых задачах такая проблема почти не возникает (без учителя), в некоторых она стоит достаточно остро (с учителем)
+
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Выбор модели}
+\begin{itemize}
+	\item Модель в обучении -- класс алгоритмов решающих задачу
+	\item Алгоритм должен решать задачи без переобучения и недообучения
+	\item Для некоторого алгоритма переобучение это излишняя его сложность, а недообучение -- простота
+	\item Единого способа оценки оптимальной сложности нет: SRM (структурная минимизация риска, Вапник), MDL (минимизация длины описания, Риссанен), ...
+	\item Кроме того, при решении задачи необходимо выбирать представление данных
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Представление объектов в машинном обучении}
+\begin{itemize}
+	\item Большая часть объектов, изучаемых в машинном обучении представляется в виде векторов
+	$$
+	x = (x_1, x_2, \dots, x_n)
+	$$
+	или матриц
+	$$
+	x = 
+	\begin{pmatrix} 
+	x_{11} & \dots & x_{1n} \\ 
+	\vdots & \ddots & \vdots \\
+	x_{m1} & \dots & x_{mn}
+	\end{pmatrix}
+	$$
+	компоненты которых называются признаками (feature), а пространство объектов иногда называется признаковым  пространством (feature space) или пространством объектов
+	\item В некоторых случаях, признаки объекта не вещественны
+	\item Иногда конкретные значения признаков объектов неизвестны, а известны только взаимосвязи (например расстояния между объектами)
+\end{itemize}
+\end{frame}
+
+
+
+
+
+\section{Задачи машинного обучения}
+
+\subsection{Обучение с учителем}
+
+\begin{frame}{Классификация}{Classification}
+	\begin{itemize}
+		\item Обучение с учителем (supervised learning)
+		\item Синоним: распознавание образов (pattern recognition)
+		\item Имеется подмножество множества объектов $\mathcal{X}$, разбитое некоторым образом на классы из $\mathcal{C}$ -- обучающая выборка (классами являются любые сущности, характеризующие группы объектов)
+		\item Необходимо найти классы для всех возможных объектов
+		\item Примеры классификации:
+		\begin{itemize}
+			\item Данные о клиенте банка, классы: {\color{main!90!black} выгоден, не выгоден}
+			\item Симптомы заболевания, классы: {\color{main!90!black} виды заболеваний}
+			\item Изображения лиц, классы: {\color{main!90!black} личности}
+			\item Данные зондирования почв, классы: {\color{main!90!black} наличие полезных ископаемых или отсутствие}
+			\item Оптическое распознавание символов (OCR)
+			\item Документы, классы: {\color{main!90!black} спам, не спам (или тематика документа)}
+		\end{itemize}
+		\item Классификацию мы рассмотрим в лекциях 2 и 3
+	\end{itemize}
+\end{frame}
+
+\begin{frame}{Регрессия}{Regression estimation}
+\begin{itemize}
+	\item Обучение с учителем (supervised learning)
+	\item Задача статистического обучения, или вообще статистики
+	\item В подмножестве множестве объектов $\mathcal{X}$ каждому объекту сопоставлено число из $\mathbb{R}$ (получается классификация с множеством классов $\mathcal{C} = \mathbb{R}$)
+	\item Необходимо найти <<ответы>> на всех возможных объектах
+	\item Очень многие методы классификации несложно модифицируются под регрессию
+	\item Примеры восстановления регрессии:
+	\begin{itemize}
+		\item Данные о жилье, {\color{main!90!black} оценка стоимости жилья}
+		\item Медицинские параметры, {\color{main!90!black} оценка длительности реабилитации } 
+		\item Данные о клиенте банка, {\color{main!90!black} оценка максимальной допустимой суммы кредита}
+	\end{itemize}
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Прогнозирование}{Forecasting}
+\begin{itemize}
+	\item Обучение с учителем (supervised learning)
+	\item Исходные данные задачи -- некоторые значения функции во времени, то есть временной ряд (time series)
+	\item Задачей является нахождение значений функции за пределами имеющихся данных
+	\item Является самой популярной задачей анализа данных 
+	\item Может решаться методами регрессии и классификации
+	\item Примеры прогнозирования
+	\begin{itemize}
+		\item Значения цены или относительного курса во времени, {\color{main!90!black} значения в будущем на некотором <<горизонте прогнозирования>>}
+		\item Данные о сейсмоактивности, {\color{main!90!black} время следующего землятресения}
+	\end{itemize}
+\end{itemize}
+\end{frame}
+
+\subsection{Обучение без учителя}
+
+\begin{frame}{Кластеризация объектов}{Clustering}
+	\begin{itemize}
+		\item Обучение без учителя (unsupervised learning)
+		\item В отличие от классификации, классы не известны, их нужно построить (но называться они будут уже кластерами)
+		\item Кластеры понимаются как непересекающиеся структуры, обладающие компактностью, связностью и пространственным разделением
+		\item Примеры классификации
+		\begin{itemize}
+			\item Данные о личности, кластеры: {\color{main!90!black} характерные группы}
+			\item Тексты, кластеры: {\color{main!90!black} группы текстов одинаковой тематики}
+			\item Некоторые объекты, кластеры: {\color{main!90!black} типичные объекты и нетипичные объекты}
+		\end{itemize}
+		\item Кластеризацию объектов мы будем рассматривать в лекции 4
+	\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Поиск ассоциативных правил}{Association rule learning}
+	\begin{itemize}
+		\item Обучение без учителя (unsupervised learning)
+		\item Среди множества составных объектов ищутся взаимосвязи
+		\item Примеры поиска ассоциативных правил:
+		\begin{itemize}
+			\item Покупки в супермаркетах, {\color{main!90!black} поиск зависимостей}
+			\item Записи в логах сервера, {\color{main!90!black} поиск частых переходов }
+			\item Некоторые данные о поведении программы или пользователя, {\color{main!90!black} нахождение признаков вторжения}
+		\end{itemize}
+		\item Поиск ассоциативных правил мы будем рассматривать в лекции 5
+	\end{itemize}
+\end{frame}
+
+\begin{frame}{Сокращение размерности данных}{Dimensionality reduction}
+	\begin{itemize}
+		\item Обучение без учителя (unsupervised learning)
+		\item Практическая задача, решение которой позволяет повысить эффективность обработки данных
+		\item Большие размерности данных неудобны для визуализации и сложны для анализа
+		\item Формально для пространства объектов $\mathbb{R}^m$ задача сводится к нахождению $r: \mathbb{R}^m \to \mathbb{R}^n, m>n$
+		\item Два подхода:
+		\begin{itemize}
+			\item Выбор информативных признаков (feature selection): {\color{main!50!black} отображение в пространство меньшей размерности отбрасыванием неинформативных признаков}
+			\item Синтез признаков (feature extraction): {\color{main!50!black} отображение в пространство меньшей размерности с помощью некоторой векторной функции}
+		\end{itemize}
+	\end{itemize}
+
+\end{frame}
+
+
+\begin{frame}{Фильтрация выбросов}{Outliers detection}
+	\begin{itemize}
+		\item Обучение без учителя (unsupervised learning)
+		\item Выбросы (outliers) -- любые объекты выборки, существенно отличающиеся от остальных объектов, в ней содержащихся 
+		\item Алгоритм должен уметь определять, что является выбросом
+		\item Примеры фильтрации:
+		\begin{itemize}
+			\item Описания процессов, {\color{main!90!black} обнаружение мошенничества, нетипичного поведения}
+			\item Зашумлённые выборки данных, {\color{main!90!black} очистка моделей данных от шумов}
+		\end{itemize}
+
+	\end{itemize}
+\end{frame}
+
+\begin{frame}{Ранжирование}{Learning to rank}
+\begin{itemize}
+	\item Обучение без учителя (unsupervised learning) или частичное обучение (semi-supervised learning)
+	\item В обычном виде ранжирование часто решается статистически и не обучаемо, но существуют и обучаемые методы
+	\item Примеры ранжирования:
+	\begin{itemize}
+		\item {\color{main!90!black} Ранжирование поисковых запросов в соответствии с релевантностью и личными интересами пользователя}
+		\item {\color{main!90!black} Ранжирование в системах коллаборативной фильтрации}
+	\end{itemize}
+\end{itemize}
+\end{frame}
+
+
+
+
+
+\subsection{}
+
+
+
+
+
+
+
+\section{Data mining}
+\subsection{}
+
+\begin{frame}{Информация, данные, знания}
+\begin{itemize}
+\item Понятия информации, данных и знаний достаточно интуитивны:
+	\begin{itemize}
+	\item Информация -- любые сведения
+	\item Данные -- совокупность некоторых фактов, идей
+	\item Знания -- совокупность фактов, закономерностей и правил их вывода 
+	\end{itemize}
+\item В распоряжении современного общества имеется немыслимое количество информации и не меньшее количество данных
+\item Но действительно важны только знания и чтобы справляться с потоками информации необходимы способы выделения знаний из данных
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Интеллектуальный анализ данных}{Data mining)}
+\begin{itemize}
+\item Процесс обнаружения в сырых данных ранее неизвестных, нетривиальных, практически полезных и доступных интерпретации знаний, необходимых для принятия решений в различных сферах человеческой деятельности (определение Григория Пиатецкого-Шапиро)
+\item Data mining тесно связан с машинным обучением:
+\begin{itemize}
+	\item Классификация задач практически аналогична
+	\item Различия кроются в самом процессе анализа данных -- машинное обучение как таковое не изучает подготовительные этапы
+\end{itemize}
+\item Потребности в data mining растут с каждым днём (ещё в 2007 году объём информации, произведённый человеком достиг 295 эксабайт)
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Области, в которых решаются задачи  data mining}
+\begin{itemize}
+	\item Астрономия, биоинформатика
+	\item Сегментация рынков, предсказание ухода клиентов
+	\item Веб-поиск
+	\item Антитерроризм, детектирование противозаконных действий 
+	\item И многие другие области, связанные с большими объёмами сырых данных
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Summary}
+\begin{itemize}
+	\item История появления машинного обучения
+	\item Машинное обучение, типы обучения
+	\item Модели данных и алгоритмов, переобучение и недообучение
+	\item Задачи машинного обучения 
+	\item Data mining
+\end{itemize}
+\end{frame}
+
+\section{Источники}
+\subsection{}
+
+\begin{frame}{Веб-ресурсы}
+\begin{enumerate}
+	\item \href{http://www.ics.uci.edu/~mlearn/MLRepository.html}{\color{main!80!black} UC Irvine Machine Learning Repository} \\
+	Репозиторий задач машинного обучения университета Калифорнии Ирвайн 
+	\item \href{http://machinelearning.ru/}{\color{main!80!black} MachineLearning.ru} \\ 
+	Профессиональный информационно-аналитический ресурс, посвященный
+машинному обучению, распознаванию образов и интеллектуальному анализу данных
+	\item \href{http://www.autonlab.org/autonweb/2.html}{\color{main!80!black} AutonLab} \\
+	Лаборатория Auton университета Carnegie Mellon
+	\item \href{http://arxiv.org}{\color{main!80!black} arXiv.org} \\
+	Открытая библиотека научных статей. Разделы, связанные с машинным обучением: cs.AI, stat.ML, cs.IR, cs.CV, cs.LG
+\end{enumerate}
+\end{frame}
+
+\begin{frame}{Основные источники}
+\begin{enumerate}
+	\item Владимир Вапник <<Восстановление зависимостей по эмпирическим данным>>
+	\item Николай Загоруйко <<Прикладные методы анализа данных и знаний>>
+	\item Tom Mitchell "Machine learning"
+	\item Trevor Hastie et al. "The Elements of Statistical Learning: Data Mining, Inference, and Prediction"
+	\item Christopher Bishop "Pattern recognition and machine learning"
+	\item Ethem Alpaydin "Introduction to machine learning"
+\end{enumerate}
+\end{frame}
+
+\begin{frame}{Курсы машинного обучения}
+\begin{enumerate}
+	\item К.В. Воронцов <<Машинное обучение>>, ФУПМ МФТИ, ВМиК МГУ, школа анализа данных Яндекса
+	\item Д.П. Ветров, Д.А. Кропотов <<Байесовские методы машинного обучения>>, ВМиК МГУ
+	\item Н.Ю. Золотых <<Машинное обучение>>, ВМК НижГУ
+	\item С.И. Николенко <<Машинное обучение>>, Computer Science Club ПОМИ
+\end{enumerate}
+
+\end{frame}
+
+\begin{frame}{Курсы машинного обучения}
+\begin{enumerate}
+\item Andrew Ng, CS 229, Machine learning, Stanford University
+\item Tom Mitchell et al., 10-701/15-781, Machine learning, Carnegie Mellon University
+\item Tommi Jakkola, 6.867, Machine learning, Massachusetts Institute of Technology
+
+\end{enumerate}
+\end{frame}
+
+\begin{frame}{Другие источники}
+\begin{itemize}
+	\item B. Allen "How to think like computer scientist: Learning with Python"
+	\item T. Segaran "Programming сollective intelligence"
+\end{itemize}
+
+\begin{itemize}
+	\item D. Hand et al. "Principles of Data Mining"
+	\item I. Witten, E. Frank "Data mining: practical machine learning tools and techniques"
+	\item D. MacKay "Information Theory, Inference, and Learning Algorithms"
+	\item И. Чубукова "Data Mining"
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{Источники для этой лекции}
+\begin{itemize}
+	\item С.И. Николенко <<Введение во всё-всё-всё>>
+	\item E. Xing "Introduction to ML and decision trees"
+ 	\item К.В. Воронцов <<Вычислительные методы обучения по прецедентам. Введение>>
+ 	\item Д.П. Ветров, Д.А. Кропотов <<Различные задачи машинного обучения>>
+	\item Н.Ю. Золотых <<Машинное обучение>>
+	\item G. Piatetsky-Shapiro <<Machine Learning and Data Mining -- Course notes>>
+
+\end{itemize}
+\end{frame}
+
+
+\end{document}

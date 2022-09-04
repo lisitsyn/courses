@@ -1,0 +1,398 @@
+\documentclass[compress,red]{beamer}
+\usepackage[utf8]{inputenc}
+\usepackage[T2A]{fontenc}
+\usepackage[russian]{babel}
+\usepackage{pscyr}
+\usepackage{tikz}
+%\usepackage{listings}
+
+\usepackage{tabularx}
+\usepackage{booktabs}
+\usepackage{colortbl}
+
+\usepackage{listingsutf8}
+\lstset{
+	inputencoding=utf8,
+	showstringspaces=\false,
+	extendedchars=\true
+}
+\lstdefinestyle{mystyle}{language=Python,
+numbers=left,
+numberstyle=\tiny\color{linenum},
+numbersep=5.5pt,
+keywordstyle=\bf\color{keywords}}
+\lstdefinelanguage{morepython}
+{morekeywords={map,sorted}}
+\usetikzlibrary{shapes,snakes,trees}
+
+
+\newsavebox{\dataTableContent}
+\newenvironment{dataTable}[1]
+	{\begin{lrbox}{\dataTableContent}
+	  \begin{tabular}{#1}}
+	{\end{tabular}\end{lrbox}\begin{tikzpicture}
+	  \node [inner xsep=0pt] (tbl){\usebox{\dataTableContent}};
+	  \begin{pgfonlayer}{background}
+	\draw[rounded corners=2pt,top color=gray!1,bottom color=main!20,draw=black]
+	         (tbl.north east) rectangle (tbl.south west);
+	\draw[rounded corners=2pt,top color=main!90!black,bottom color=main!60!black,draw=black]
+	          ($(tbl.north west)$) rectangle ($(tbl.north east)-(0,1.5\baselineskip)$);
+	\draw[rounded corners=1pt,top color=main!90!black,bottom color=main!60!black,draw=black]
+   	          ($(tbl.south west)+(0,02pt)$) rectangle ($(tbl.south east)-(0,0.17\baselineskip)$);
+\end{pgfonlayer}
+\end{tikzpicture}}
+
+
+\definecolor{linenum}{rgb}{1,0.7,0.7}
+\definecolor{keywords}{rgb}{0.5,0.2,0.2}
+\definecolor{firstlevel}{rgb}{0.4,0,0}
+\definecolor{secondlevel}{rgb}{0.7,0,0}
+\definecolor{thirdlevel}{rgb}{1,0,0}
+\definecolor{main}{rgb}{0.75,0.15,0}
+
+\usetheme{Warsaw}
+\setbeamercolor*{palette primary}{use=structure,fg=white,bg=main}
+%\setbeamercolor{frametitle}{fg=white,bg=main}
+%\setbeamercolor{outline}{fg=white,bg=main}
+%\setbeamercolor{title}{fg=white,bg=main}
+
+\usetikzlibrary{calc,fit,shadows,arrows,positioning}
+
+\pgfdeclarelayer{background}
+\pgfdeclarelayer{foreground}
+\pgfsetlayers{background,main,foreground}
+
+\usepackage{verbatim}
+\usepackage[margin=15pt,font={small,sf,it},labelfont=bf]{caption} 
+\usebackgroundtemplate{\includegraphics[width=\paperwidth]{drawing.png}}
+
+\useoutertheme[subsection=false]{smoothbars}
+
+\setbeamersize{text margin left=1.5em,text margin right=1.5em}
+\setbeamertemplate{itemize item}{$\bullet$}
+\setbeamertemplate{itemize subitem}{$\bullet$}
+\setbeamertemplate{enumerate items}[default]
+
+\setbeamercolor{enumerate item}{bf=black,fg=main}  
+\setbeamercolor{itemize item}{fg=main}  
+\setbeamercolor{enumerate subitem}{bf=white,fg=main}  
+\setbeamercolor{itemize subitem}{fg=main}  
+
+
+
+
+
+\title[Машинное обучение]{Поиск ассоциативных правил. Алгоритм Apriori, FP-tree growth}
+\author{Сергей Лисицын}
+\institute{}
+\date{19 апреля 2011 г.}
+\setbeamertemplate{footline}[page number]{}
+\setbeamertemplate{navigation symbols}{}
+
+\begin{document}
+\section{}
+\abovedisplayskip=.6\abovedisplayskip
+\belowdisplayskip=.6\belowdisplayskip
+
+\begin{frame}
+
+\titlepage
+\end{frame}
+\section{Общие понятия}
+\subsection{}
+
+\begin{frame}{Задача поиска ассоциативных правил}
+\begin{itemize}
+	\item Имеется некоторое множество транзакций, наборов событий, предметов или других сущностей
+	\item Необходимо найти статистически устойчивые <<связи>> между подмножествами таких транзакций
+	\item Если считать <<появление>> некоторого подмножества в транзакции случайным событием -- то мы будем искать подмножества, для которых наблюдается корреляция (в интуитивном смысле этого слова)
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Формальная задача поиска ассоциативных правил}
+Пусть имеется конечное множество признаков $M$, некоторое множество 
+$T = \left\{ t_1, t_2, \dots , t_n \right\}$, где элементы $t_i \subset M$ называются транзакциями. 
+Ассоциативным правилом называется случайное событие
+$$
+s \Rightarrow d \quad\sim\quad (d\subset t\vert s \subset t)
+$$
+имеющая смысл события <<если $s$ принадлежит $t$, то и $d$ принадлежит $t$>>,
+для которой определена функция поддержки
+$$
+support (s\Rightarrow d) = \frac{|\left\{ t: s\cup d \subseteq t \in T\right\}|}{|T|}
+$$
+Достоверностью ассоциативного правила называется функция
+$$
+confidence (s,d) = \frac{support(s\cup d)}{support(s)},
+$$
+
+\end{frame}
+
+\begin{frame}{Алгоритмы поиска ассоциативных правил}
+\begin{itemize}
+	\item Прецедентные по своей природе -- работают с конкретными данными, не рассматривая вероятностные пространства
+	\item Основным алгоритмом для решения этой задачи является Apriori
+	\item Нет смысла говорить об обобщающей способности или других особенностях обучения
+\end{itemize}
+\end{frame}
+
+\section{Приложения}
+\subsection{}
+\begin{frame}{Анализ потребительских корзин}{market basket analysis}
+\begin{itemize}
+	\item Область, в которой впервые решалась задача поиска ассоциативных правил
+	\item Любая транзакция -- некоторое множество покупок одним клиентом 
+	\item Полученные правила позволяют принимать решения, положительно сказывающиеся на продажах: начиная от расположения <<связанных товаров>> заканчивая различными акциями
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Другие схожие задачи}{}
+\begin{itemize}
+	\item Предсказание поведения клиентов компаний
+	\item Поиск связей в текстах 
+	\item Другие задачи поиска связей между объектами и событиями
+	\item ...
+\end{itemize}
+\end{frame}
+
+
+\section{Алгоритм Apriori}
+\subsection{}
+
+\begin{frame}{Алгоритм Apriori}
+\begin{itemize}
+\item Один из базовых алгоритмов поиска ассоциативных правил
+\item Впервые предложен в работе Ракеша Аграваля (R. Agrawal), представителя IBM
+\item Основан на правиле антимонотонности (downward closure lemma), позволяющем априорно отсечь наборы, не удовлетворяющие минимальной поддержке
+\item Высокие требования к памяти и вычислительным мощностям
+\item В контексте алгоритма используют следующие понятия:
+\begin{itemize}
+\item Набор -- некоторое подмножество множества признаков $M$
+\item Расширение набора -- результат объединения наборов
+\end{itemize}
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Свойство антимонотонности}{downward closure lemma}
+\begin{block}{}
+Если для некоторых наборов $A,B \subseteq M$: $A\subseteq B$, то
+$$
+support (A) \geq support (B)
+$$
+\end{block}
+\begin{itemize}
+	\item Поддержка набора при его расширении никогда не возрастает
+	\item Свойство существенно уменьшает вычислительную сложность поиска правил при обычном комбинаторном подсчёте
+\end{itemize}
+
+\end{frame}
+
+\subsection{}
+
+\begin{frame}[containsverbatim]{Описание алгоритма}{первый этап, нахождение частых наборов}
+\begin{block}{}
+\small
+{\bf\color{main}Вход:} база транзакций $T$, минимальный уровень поддержки $\color{main!10!black}support_{min}$\\
+{\bf\color{main}Выход:} подмножества элементов транзакционной базы, удовлетворяющие $\color{main!10!black}support_{min}$\\
+\begin{enumerate}
+\item найти все пары (одноэлементный набор -- поддержка) в транзакционной базе $T$
+\item отсечь из полученных пар все элементы, не удовлетворяющие минимальной поддержке $support_{min}$
+\item пока множество $L \ne \O$ не пусто
+\begin{enumerate}
+\item добавить $L$ к результату
+\item $L = L \times L$ (декартово произведение, cross join, исключая повторы как внутри наборов, так и самих наборов)
+\item отсечь элементы $L$, не удовлетворяющие поддержке
+\end{enumerate}
+\end{enumerate}
+\end{block}
+\end{frame}
+
+\begin{frame}{Описание алгоритма}{второй этап, нахождение ассоциативных правил}
+\begin{block}{}
+\small
+{\bf\color{main}Вход:} частовстречающиеся наборы транзакционной базы, минимальный уровень достоверности $\color{main!10!black}confidence_{min}$\\
+{\bf\color{main}Выход:} кортежи $\color{main!10!black}(s,d,confidence(s\Rightarrow d))$, удовлетворяющие минимальному уровню достоверности $\color{main!10!black}confidence_{min}$\\
+\begin{enumerate}
+\item для всех непересекающихся подмножеств полученных наборов по формуле 
+$$
+confidence (s,d) = \dfrac{support(s\cup d)}{support(s)}
+$$
+вычислить достоверность и добавить полученный кортеж (s,d, достоверность $s\Rightarrow d$) в результат
+\item отсечь из результата элементы, не удовлетворяющие минимальной достоверности $confidence_{min}$
+\end{enumerate}
+\end{block}
+\end{frame}
+
+\subsection{}
+
+\begin{frame}{Пример работы алгоритма}{Поиск частых наборов}
+\definecolor{ok}{rgb}{0.2,0.8,0.2}
+\definecolor{nope}{rgb}{0.8,0.2,0.2}
+Пусть транзакционная база $\color{main!40!black}T~=~\left\{ \mathbf{(A) , (A,B) , (A,C) , (A,B), (A), (A,B,C) , (C,D)} \right\}$, а уровень поддержки $\color{main!40!black}support_{min}=2$:
+\\[1cm]
+\begin{minipage}[c]{.27\textwidth}
+\begin{dataTable}
+{@{\hspace{1ex}} c @{\hspace{1ex}} c @{\hspace{1ex}}}%
+
+\color{white}{Набор} & \color{white}{Частота} \\ \midrule
+(A)	&	\color{ok}{6}	 \\ \midrule
+(B)	&	\color{ok}{3}	 \\ \midrule
+(C)	&	\color{ok}{3}	\\ \midrule
+(D)	&	\color{nope}{1} \\	
+\end{dataTable}
+\end{minipage}
+\pause
+$\Rightarrow$
+\begin{minipage}[c]{.27\textwidth}
+\begin{dataTable}
+{@{\hspace{1ex}} c @{\hspace{1ex}} c @{\hspace{1ex}}}%
+
+\color{white}{Набор} & \color{white}{Частота} \\ \midrule
+(A,B)	&	\color{ok}{3}	 \\ \midrule
+(A,C)	&	\color{ok}{2}	 \\ \midrule
+(B,C)	&	\color{nope}{1}
+\end{dataTable}
+\end{minipage}
+\pause
+$\Rightarrow$
+\begin{minipage}[c]{.30\textwidth}
+\definecolor{ok}{rgb}{0.2,0.8,0.2}
+\definecolor{nope}{rgb}{0.8,0.2,0.2}
+
+\begin{dataTable}
+{@{\hspace{1ex}} c @{\hspace{1ex}} c @{\hspace{1ex}}}%
+
+\color{white}{Набор} & \color{white}{Частота} \\ \midrule
+(A,B,C)	&	\color{nope}{1}	 \\ 
+\end{dataTable}
+\end{minipage}
+\end{frame}
+
+\begin{frame}{Пример работы алгоритма}{Нахождение правил по частым наборам}
+\definecolor{ok}{rgb}{0.2,0.8,0.2}
+\begin{dataTable}
+{@{\hspace{1ex}} c @{\hspace{1ex}} c @{\hspace{1ex}}}%
+
+\color{white}{Набор} & \color{white}{Частота} \\ \midrule
+(A,B)	&	\color{ok}{3}	 \\ 
+(A,C)	&	\color{ok}{2}	 \\ 
+(A)	&	\color{ok}{6}	 \\ 
+(B)	&	\color{ok}{4}	 \\ 
+(C)	&	\color{ok}{3}	 
+\end{dataTable}
+\hfill
+\begin{dataTable}
+{@{\hspace{1ex}} c @{\hspace{1ex}} c @{\hspace{1ex}}}%
+
+\color{white}{Правило} & \color{white}{Достоверность} \\ \midrule
+$(A) \Rightarrow (B)$	&	\color{ok}{0.5}	 \\ 
+$(A) \Rightarrow (C)$	&	\color{ok}{0.33}	 
+\end{dataTable}
+\end{frame}
+
+\subsection{}
+
+\begin{frame}{}
+\begin{block}{}
+\scriptsize
+\lstinputlisting[style=mystyle,fontadjust,alsolanguage=morepython]{1.py}
+\end{block}
+\end{frame}
+
+\begin{frame}{}
+\begin{block}{}
+\scriptsize
+\lstinputlisting[style=mystyle,fontadjust,alsolanguage=morepython]{2.py}
+\end{block}
+\end{frame}
+
+\begin{frame}{Эффективность алгоритма}
+\begin{itemize}
+\item Действительно огромное количество требуемой памяти (особенно при низких уровнях поддержки)\footnote{нулевая поддержка в базе размером $N$ на $k$-ом шаге вызовет создание и подсчёт частот $N^k$ элементов $\sim O(N^{k+1})$}
+\item Кроме требований по памяти, высокие требования по времени вычисления
+\item Алгоритм отлично работает для небольших баз, но не для очень больших
+\item Все существующие модификации этого алгоритма (AprioriTID, AprioriHybrid, ...) всё равно схожи с перебором
+
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Недостатки}
+\begin{itemize}
+	\item Требуется постоянная генерация возможных наборов, сканирование множества наборов, отсечение, отсюда огромное количество необходимой памяти и времени вычисления
+	\item По полученным частым наборам необходимо производить поиск правил (не менее трудоёмкий)
+	\item Наиболее эффективным решением проблем Apriori является замена его алгоритмом построения FP-деревьев
+\end{itemize}
+\end{frame}
+
+\section{FP-деревья}
+\subsection{}
+\begin{frame}{Метод создания FP-деревьев}{FP (frequent pattern) tree growth}
+\begin{itemize}
+	\item Эффективное решение, преодолившее недостатки производительности алгоритма Apriori
+	\item Хранит всю необходимую информацию в виде дерева
+	\item Построение дерева производится за два полных обхода всего множества транзакций
+	\item Для нахождения ассоциативных правил используется построенное дерево
+\end{itemize}
+\end{frame}
+
+\begin{frame}[containsverbatim]{Описание алгоритма}{Построение дерева}
+\begin{block}{}
+\small
+{\bf\color{main}Вход:} множество транзакций $D$, минимальный уровень поддержки $\color{main!10!black}support_{min}$\\
+{\bf\color{main}Выход:} FP-дерево\\
+\begin{enumerate}
+\item Найти поддержку для каждого одиночного элемента, отбросить элементы с недостаточной поддержкой
+\item Отсортировать одиночные элементы по убыванию поддержки в список $FList$
+\item Создать корень дерева T и пометить его пустым
+\item Для каждой транзакции $d$ из $D$
+\begin{itemize}
+\item Отсортировать элементы $d$ в порядке, соответствующем порядку в $FList$
+\item Представить $d$ в виде $[p | P]$, где $p$ -- первый элемент, $P$ -- остальные и выполнить $\text{\color{main}Insert-tree}([p | P], T)$
+\end{itemize}
+\end{enumerate}
+\end{block}
+\end{frame}
+
+\begin{frame}[containsverbatim]{Описание алгоритма}{Вставка}
+\begin{block}{}
+Insert-tree $([p|P],T)$
+\begin{enumerate}
+\item Если у $T$ имеется потомок $N$ соответствующий $p$ -- увеличить его поддержку
+\item Иначе создать потомок узла $T$ -- $N$, соответствующий $p$, проинициализировать его поддержку 1 и связать узел $N$ со всеми узлами с такими же именами
+\item Если $P$ не пусто, запустить алгоритм рекурсивно Insert-tree $(P,N)$
+\end{enumerate}
+\end{block}
+\end{frame}
+
+%\begin{frame}{Описание алгоритма}{Второй этап, нахождение ассоциативных правил %по построенному дереву}
+%\begin{block}{}
+%\small
+%{\bf\color{main}Вход:} построенное FP-дерево, минимальный уровень %достоверности $\color{main!10!black}confidence_{min}$\\
+%{\bf\color{main}Выход:} кортежи $\color{main!10!black}%(s,d,confidence(s\Rightarrow d))$, удовлетворяющие минимальному уровню %достоверности $\color{main!10!black}confidence_{min}$\\
+%\begin{enumerate}
+%
+%\item 
+%
+%\end{enumerate}
+%\end{block}
+%\end{frame}
+
+\begin{frame}{Эффективность}
+\begin{itemize}
+	\item FP-дерево существенно быстрее алгоритма Apriori
+	\item Для большинства баз данных FP дерево достаточно компактно и <<умещается>> в памяти
+	\item В случае большого размера построенного дерева можно использовать B+ деревья
+\end{itemize}
+\end{frame}
+
+\section{}
+
+\begin{frame}{Источники}
+\begin{itemize}
+	\item Wasilewska A., "Apriori algorithm"
+	\item Воронцов К.В., <<Лекции по логическим алгоритма классификации>>
+	\item Kohonen A., "FP-Tree"
+\end{itemize}
+\end{frame}
+
+\end{document}
